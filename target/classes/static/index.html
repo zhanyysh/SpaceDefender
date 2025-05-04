@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Defender</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="start-screen" id="startScreen">
+            <h1>Space Defender</h1>
+            <input type="text" id="username" placeholder="Enter your username">
+            <button id="startButton">Start Game</button>
+        </div>
+        
+        <div class="game-screen" id="gameScreen" style="display: none;">
+            <canvas id="gameCanvas"></canvas>
+            <div class="game-info">
+                <div>Score: <span id="score">0</span></div>
+                <div>Lives: <span id="lives">3</span></div>
+                <div>Level: <span id="level">1</span></div>
+                <button id="pauseButton" style="margin-left:20px;">Pause</button>
+            </div>
+            <div id="boostIcons" class="boost-icons"></div>
+            <div id="nextLevelBanner" class="next-level-banner" style="display:none;">Next Level!</div>
+            <div id="countdownOverlay" class="countdown-overlay" style="display:none;"></div>
+        </div>
+        
+        <div class="leaderboard" id="leaderboard">
+            <h2>Leaderboard</h2>
+            <ul id="leaderboardList"></ul>
+        </div>
+
+        <div id="gameOverOverlay" class="game-over-overlay" style="display:none;">
+            <h2>Game Over</h2>
+            <div>Final Score: <span id="finalScore">0</span></div>
+            <button id="playAgainButton">Play Again</button>
+        </div>
+    </div>
+    <script src="js/game.js"></script>
+</body>
+</html> 

@@ -1,0 +1,10 @@
+com\spacedefender\model\Projectile.class
+com\spacedefender\SpaceDefenderApplication.class
+com\spacedefender\service\GameService$LeaderboardInfo.class
+com\spacedefender\model\Player.class
+com\spacedefender\repository\PlayerRepository.class
+com\spacedefender\controller\GameController.class
+com\spacedefender\model\GameState.class
+com\spacedefender\service\GameService.class
+com\spacedefender\service\Boost.class
+com\spacedefender\model\Enemy.class
