@@ -1,8 +1,13 @@
 C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\controller\GameController.java
+C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\model\Room.java
+C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\controller\RoomController.java
+C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\config\WebSocketConfig.java
+C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\SpaceDefenderApplication.java
+C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\model\Projectile.java
+C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\controller\GameWebSocketController.java
 C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\service\GameService.java
 C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\model\Enemy.java
+C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\repository\RoomRepository.java
 C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\model\GameState.java
 C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\model\Player.java
 C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\repository\PlayerRepository.java
-C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\SpaceDefenderApplication.java
-C:\Users\TZH\Desktop\Space\src\main\java\com\spacedefender\model\Projectile.java

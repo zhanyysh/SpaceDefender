@@ -26,22 +26,109 @@ class Game {
         this.countdownActive = false;
         this.running = false;
         
+        this.gameMode = null; // 'single' or 'multi'
+        this.roomId = null;
+        this.roomCode = null;
+        
         this.setupEventListeners();
         this.loadLeaderboard();
     }
     
     setupEventListeners() {
-        document.getElementById('startButton').addEventListener('click', () => this.startGame());
-        document.getElementById('pauseButton').addEventListener('click', () => this.togglePause());
+        document.getElementById('singlePlayerBtn').addEventListener('click', () => this.selectGameMode('single'));
+        document.getElementById('multiPlayerBtn').addEventListener('click', () => this.selectGameMode('multi'));
+        document.getElementById('createRoomBtn').addEventListener('click', () => this.createRoom());
+        document.getElementById('isPrivate').addEventListener('change', (e) => {
+            document.getElementById('privateRoomCode').style.display = e.target.checked ? 'block' : 'none';
+        });
         const playAgainBtn = document.getElementById('playAgainButton');
         if (playAgainBtn) {
             playAgainBtn.addEventListener('click', () => this.playAgain());
         }
         window.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
-            if (e.key.toLowerCase() === 'p') this.togglePause();
         });
         window.addEventListener('keyup', (e) => this.keys[e.key] = false);
+        document.getElementById('menuButton').addEventListener('click', () => {
+            this.paused = true;
+            document.getElementById('menuOverlay').style.display = 'flex';
+        });
+        document.getElementById('resumeButton').addEventListener('click', () => {
+            this.paused = false;
+            document.getElementById('menuOverlay').style.display = 'none';
+        });
+        document.getElementById('exitButton').addEventListener('click', () => {
+            this.running = false;
+            document.getElementById('menuOverlay').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'block';
+        });
+    }
+    
+    async selectGameMode(mode) {
+        this.gameMode = mode;
+        if (mode === 'single') {
+            await this.startGame();
+        } else {
+            document.getElementById('multiplayerOptions').style.display = 'block';
+            await this.loadRooms();
+        }
+    }
+    
+    async loadRooms() {
+        try {
+            const response = await fetch('/api/game/rooms');
+            const rooms = await response.json();
+            const roomList = document.getElementById('roomList');
+            roomList.innerHTML = '';
+            
+            rooms.forEach(room => {
+                const roomElement = document.createElement('div');
+                roomElement.className = 'room-item';
+                roomElement.innerHTML = `
+                    <span>Players: ${room.currentPlayers}/${room.maxPlayers}</span>
+                    <button onclick="game.joinRoom('${room.id}')">Join</button>
+                `;
+                roomList.appendChild(roomElement);
+            });
+        } catch (error) {
+            console.error('Error loading rooms:', error);
+        }
+    }
+    
+    async createRoom() {
+        const maxPlayers = document.getElementById('maxPlayers').value;
+        const isPrivate = document.getElementById('isPrivate').checked;
+        
+        try {
+            const response = await fetch('/api/game/rooms', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    maxPlayers,
+                    isPrivate
+                })
+            });
+            
+            const room = await response.json();
+            this.roomId = room.id;
+            this.roomCode = room.code;
+            
+            if (isPrivate) {
+                document.getElementById('roomCode').textContent = room.code;
+            }
+            
+            await this.startGame();
+        } catch (error) {
+            console.error('Error creating room:', error);
+        }
+    }
+    
+    async joinRoom(roomId) {
+        this.roomId = roomId;
+        await this.startGame();
     }
     
     async startGame() {
@@ -57,7 +144,11 @@ class Game {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ username })
+                body: JSON.stringify({ 
+                    username,
+                    gameMode: this.gameMode,
+                    roomId: this.roomId
+                })
             });
             
             this.gameState = await response.json();
@@ -314,8 +405,8 @@ class Game {
     }
     
     togglePause() {
+        // No longer used, but kept for compatibility if called elsewhere
         this.paused = !this.paused;
-        document.getElementById('pauseButton').textContent = this.paused ? 'Resume' : 'Pause';
     }
     
     showNextLevelBanner() {
