@@ -2,24 +2,26 @@ package com.spacedefender.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import java.util.UUID;
+import lombok.NoArgsConstructor;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Data
+@NoArgsConstructor
 public class Room {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
-    
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true)
+    private String code; // For private rooms
+
+    private boolean isPublic;
     private int maxPlayers;
     private int currentPlayers;
-    private boolean isPrivate;
-    private String roomCode;
-    
-    @PrePersist
-    public void generateRoomCode() {
-        if (isPrivate && roomCode == null) {
-            roomCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-        }
-    }
+    private String name; // Optional: room name or creator username
+
+    @ElementCollection
+    private Set<String> usernames = new HashSet<>();
 } 

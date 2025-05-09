@@ -3,13 +3,15 @@ com\spacedefender\SpaceDefenderApplication.class
 com\spacedefender\controller\RoomController.class
 com\spacedefender\service\GameService$LeaderboardInfo.class
 com\spacedefender\model\Player.class
-com\spacedefender\controller\GameWebSocketController.class
 com\spacedefender\repository\PlayerRepository.class
 com\spacedefender\repository\RoomRepository.class
+com\spacedefender\controller\GameMessageController.class
 com\spacedefender\controller\GameController.class
+com\spacedefender\model\GameStateEntity.class
 com\spacedefender\model\GameState.class
 com\spacedefender\service\GameService.class
 com\spacedefender\service\Boost.class
+com\spacedefender\repository\GameStateEntityRepository.class
 com\spacedefender\config\WebSocketConfig.class
 com\spacedefender\model\Enemy.class
 com\spacedefender\model\Room.class

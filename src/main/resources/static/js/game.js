@@ -1,3 +1,126 @@
+let currentGame = null;
+let stompClient = null;
+let currentRoomId = null;
+
+window.addEventListener('load', () => {
+    // Single Player button
+    document.getElementById('singlePlayerBtn').onclick = function() {
+        startSinglePlayerGame();
+    };
+
+    // Multiplayer button
+    document.getElementById('multiPlayerBtn').onclick = function() {
+        document.getElementById('multiplayerOptions').style.display = 'block';
+        loadRooms();
+    };
+
+    // Play Again button
+    document.getElementById('playAgainButton').addEventListener('click', () => {
+        document.getElementById('gameOverOverlay').style.display = 'none';
+        document.getElementById('countdownOverlay').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'block';
+        if (currentGame && currentGame.running) {
+            currentGame.running = false;
+        }
+        currentGame = new Game();
+        currentGame.startGame();
+    });
+
+    // Menu and Exit buttons
+    document.getElementById('menuButton').addEventListener('click', () => {
+        if (currentGame) {
+            currentGame.paused = true;
+            const menuOverlay = document.getElementById('menuOverlay');
+            menuOverlay.style.display = 'flex';
+            menuOverlay.style.opacity = '1';
+        }
+    });
+
+    document.getElementById('resumeButton').addEventListener('click', () => {
+        if (currentGame) {
+            currentGame.paused = false;
+            const menuOverlay = document.getElementById('menuOverlay');
+            menuOverlay.style.display = 'none';
+            menuOverlay.style.opacity = '0';
+        }
+    });
+
+    document.getElementById('exitButton').addEventListener('click', () => {
+        if (currentGame) {
+            currentGame.running = false;
+            const menuOverlay = document.getElementById('menuOverlay');
+            menuOverlay.style.display = 'none';
+            menuOverlay.style.opacity = '0';
+            document.getElementById('gameScreen').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'flex';
+            document.getElementById('startScreen').style.opacity = '1';
+            const leaderboard = document.getElementById('leaderboard');
+            leaderboard.style.display = '';
+            leaderboard.style.opacity = '';
+            document.getElementById('countdownOverlay').style.display = 'none';
+            document.getElementById('gameOverOverlay').style.display = 'none';
+        }
+    });
+
+    document.getElementById('gameOverExitButton').addEventListener('click', () => {
+        if (currentGame) {
+            currentGame.running = false;
+        }
+        document.getElementById('gameOverOverlay').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'none';
+        document.getElementById('startScreen').style.display = 'flex';
+        document.getElementById('startScreen').style.opacity = '1';
+        const leaderboard = document.getElementById('leaderboard');
+        leaderboard.style.display = '';
+        leaderboard.style.opacity = '';
+        document.getElementById('countdownOverlay').style.display = 'none';
+    });
+
+    // Create Room button
+    document.getElementById('createRoomBtn').onclick = async function() {
+        const username = document.getElementById('username').value.trim();
+        const maxPlayers = parseInt(document.getElementById('maxPlayers').value, 10);
+        const isPublic = document.getElementById('isPublic').checked;
+        if (!username) {
+            alert('Please enter a username');
+            return;
+        }
+        const res = await fetch('/api/rooms', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ username, maxPlayers, isPublic })
+        });
+        const room = await res.json();
+        if (!isPublic) {
+            document.getElementById('privateRoomCode').style.display = 'block';
+            document.getElementById('roomCode').textContent = room.code;
+        }
+        // Optionally, auto-join the room or show waiting screen
+        // joinRoom(room.id, username);
+    };
+
+    // Keyboard events for the game
+    window.addEventListener('keydown', (e) => {
+        if (currentGame) {
+            currentGame.keys[e.key] = true;
+        }
+    });
+    window.addEventListener('keyup', (e) => {
+        if (currentGame) {
+            currentGame.keys[e.key] = false;
+        }
+    });
+});
+
+// Helper for single player game
+function startSinglePlayerGame() {
+    if (currentGame && currentGame.running) {
+        currentGame.running = false;
+    }
+    currentGame = new Game();
+    currentGame.startGame();
+}
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -26,109 +149,12 @@ class Game {
         this.countdownActive = false;
         this.running = false;
         
-        this.gameMode = null; // 'single' or 'multi'
-        this.roomId = null;
-        this.roomCode = null;
-        
         this.setupEventListeners();
         this.loadLeaderboard();
     }
     
     setupEventListeners() {
-        document.getElementById('singlePlayerBtn').addEventListener('click', () => this.selectGameMode('single'));
-        document.getElementById('multiPlayerBtn').addEventListener('click', () => this.selectGameMode('multi'));
-        document.getElementById('createRoomBtn').addEventListener('click', () => this.createRoom());
-        document.getElementById('isPrivate').addEventListener('change', (e) => {
-            document.getElementById('privateRoomCode').style.display = e.target.checked ? 'block' : 'none';
-        });
-        const playAgainBtn = document.getElementById('playAgainButton');
-        if (playAgainBtn) {
-            playAgainBtn.addEventListener('click', () => this.playAgain());
-        }
-        window.addEventListener('keydown', (e) => {
-            this.keys[e.key] = true;
-        });
-        window.addEventListener('keyup', (e) => this.keys[e.key] = false);
-        document.getElementById('menuButton').addEventListener('click', () => {
-            this.paused = true;
-            document.getElementById('menuOverlay').style.display = 'flex';
-        });
-        document.getElementById('resumeButton').addEventListener('click', () => {
-            this.paused = false;
-            document.getElementById('menuOverlay').style.display = 'none';
-        });
-        document.getElementById('exitButton').addEventListener('click', () => {
-            this.running = false;
-            document.getElementById('menuOverlay').style.display = 'none';
-            document.getElementById('gameScreen').style.display = 'none';
-            document.getElementById('startScreen').style.display = 'block';
-        });
-    }
-    
-    async selectGameMode(mode) {
-        this.gameMode = mode;
-        if (mode === 'single') {
-            await this.startGame();
-        } else {
-            document.getElementById('multiplayerOptions').style.display = 'block';
-            await this.loadRooms();
-        }
-    }
-    
-    async loadRooms() {
-        try {
-            const response = await fetch('/api/game/rooms');
-            const rooms = await response.json();
-            const roomList = document.getElementById('roomList');
-            roomList.innerHTML = '';
-            
-            rooms.forEach(room => {
-                const roomElement = document.createElement('div');
-                roomElement.className = 'room-item';
-                roomElement.innerHTML = `
-                    <span>Players: ${room.currentPlayers}/${room.maxPlayers}</span>
-                    <button onclick="game.joinRoom('${room.id}')">Join</button>
-                `;
-                roomList.appendChild(roomElement);
-            });
-        } catch (error) {
-            console.error('Error loading rooms:', error);
-        }
-    }
-    
-    async createRoom() {
-        const maxPlayers = document.getElementById('maxPlayers').value;
-        const isPrivate = document.getElementById('isPrivate').checked;
-        
-        try {
-            const response = await fetch('/api/game/rooms', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    maxPlayers,
-                    isPrivate
-                })
-            });
-            
-            const room = await response.json();
-            this.roomId = room.id;
-            this.roomCode = room.code;
-            
-            if (isPrivate) {
-                document.getElementById('roomCode').textContent = room.code;
-            }
-            
-            await this.startGame();
-        } catch (error) {
-            console.error('Error creating room:', error);
-        }
-    }
-    
-    async joinRoom(roomId) {
-        this.roomId = roomId;
-        await this.startGame();
+        // No need to add new event listeners here, as they are handled in the window load event
     }
     
     async startGame() {
@@ -144,17 +170,13 @@ class Game {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    username,
-                    gameMode: this.gameMode,
-                    roomId: this.roomId
-                })
+                body: JSON.stringify({ username })
             });
             
             this.gameState = await response.json();
             document.getElementById('startScreen').style.display = 'none';
             document.getElementById('gameScreen').style.display = 'block';
-            this.resetPlayerState();
+            
             this.running = true;
             await this.startCountdown();
             this.gameLoop();
@@ -404,11 +426,6 @@ class Game {
         }
     }
     
-    togglePause() {
-        // No longer used, but kept for compatibility if called elsewhere
-        this.paused = !this.paused;
-    }
-    
     showNextLevelBanner() {
         const banner = document.getElementById('nextLevelBanner');
         banner.style.display = 'block';
@@ -439,17 +456,81 @@ class Game {
             iconsDiv.appendChild(icon);
         }
     }
-    
-    async playAgain() {
-        document.getElementById('gameOverOverlay').style.display = 'none';
-        this.running = false;
-        // Wait a frame to ensure previous loop stops
-        await new Promise(res => setTimeout(res, 50));
-        await this.startGame();
+}
+
+async function loadRooms() {
+    const res = await fetch('/api/rooms');
+    const rooms = await res.json();
+    const roomList = document.getElementById('roomList');
+    roomList.innerHTML = '';
+    rooms.forEach(room => {
+        const div = document.createElement('div');
+        div.textContent = `Room #${room.id} (${room.currentPlayers}/${room.maxPlayers})`;
+        const joinBtn = document.createElement('button');
+        joinBtn.textContent = 'Join';
+        joinBtn.onclick = () => joinRoom(room.id);
+        div.appendChild(joinBtn);
+        roomList.appendChild(div);
+    });
+}
+
+async function joinRoom(roomId) {
+    const username = document.getElementById('username').value.trim();
+    const res = await fetch(`/api/rooms/${roomId}/join`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username })
+    });
+    if (res.ok) {
+        // Proceed to multiplayer game lobby or game
+        // startMultiplayerGame(roomId, username);
+        alert('Joined room! (implement game start logic)');
+        connectToRoomWebSocket(roomId, (data) => {
+            // Update your game state here
+            // For now, just log:
+            console.log('Received from server:', data);
+        });
+    } else {
+        alert('Failed to join room: ' + await res.text());
     }
 }
 
-// Start the game when the page loads
-window.addEventListener('load', () => {
-    new Game();
-}); 
+// For joining by code (private room)
+async function joinByCode() {
+    const code = prompt('Enter room code:');
+    const username = document.getElementById('username').value.trim();
+    const res = await fetch('/api/rooms/join-by-code', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ code, username })
+    });
+    if (res.ok) {
+        // Proceed to multiplayer game lobby or game
+        // startMultiplayerGame(roomId, username);
+        alert('Joined private room! (implement game start logic)');
+    } else {
+        alert('Failed to join room: ' + await res.text());
+    }
+}
+
+function connectToRoomWebSocket(roomId, onMessage) {
+    currentRoomId = roomId;
+    const socket = new SockJS('/ws');
+    stompClient = Stomp.over(socket);
+
+    stompClient.connect({}, function (frame) {
+        // Subscribe to room topic
+        stompClient.subscribe('/topic/room/' + roomId, function (message) {
+            const data = JSON.parse(message.body);
+            onMessage(data);
+        });
+        // Optionally: notify server you joined
+        // stompClient.send('/app/room/' + roomId + '/action', {}, JSON.stringify({type: 'join', username: ...}));
+    });
+}
+
+function sendRoomAction(roomId, action) {
+    if (stompClient && stompClient.connected) {
+        stompClient.send('/app/room/' + roomId + '/action', {}, JSON.stringify(action));
+    }
+}
