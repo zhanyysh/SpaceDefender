@@ -159,7 +159,7 @@ public class GameService {
             for (int col = 0; col < cols; col++) {
                 int x = startX + col * spacingX;
                 int y = startY + row * spacingY;
-                double speed = 1.0 + (level - 1) * 0.5;
+                double speed = 1.0; // <-- фиксированная скорость для всех уровней
                 int health = 1; // Always 1-hit to kill
                 int points = 100 * level;
                 gameState.getEnemies().add(new Enemy(x, y, 40, 40, speed, health, points));
@@ -234,4 +234,4 @@ class Boost {
         this.height = 30;
         this.type = type;
     }
-} 
+}
