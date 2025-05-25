@@ -10,18 +10,16 @@ import java.util.HashMap;
 @NoArgsConstructor
 public class GameState {
     private Player player;
-    private List<Enemy> enemies;
-    private List<Projectile> projectiles;
+    private List<Enemy> enemies = new ArrayList<>();
+    private List<Projectile> projectiles = new ArrayList<>();
+    private List<Boost> boosts = new ArrayList<>();
     private boolean gameOver;
     private boolean paused;
-    private List<String> activeBoosts = new ArrayList<>();
     private int enemyDirection = 1; // 1 for right, -1 for left
     private int enemyStepDown = 20; // pixels to move down when edge is hit
     
     public GameState(Player player) {
         this.player = player;
-        this.enemies = new ArrayList<>();
-        this.projectiles = new ArrayList<>();
         this.gameOver = false;
         this.paused = false;
     }
@@ -35,4 +33,12 @@ public class GameState {
         this.player.setLives(3);
         this.player.setLevel(1);
     }
-} 
+
+    public List<Boost> getBoosts() {
+        return boosts;
+    }
+
+    public void setBoosts(List<Boost> boosts) {
+        this.boosts = boosts;
+    }
+}

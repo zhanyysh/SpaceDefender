@@ -136,11 +136,14 @@ class Game {
         
         this.keys = {};
         this.lastShot = 0;
-        this.shotCooldown = 500;
+        this.defaultShotCooldown = 500;
+        this.shotCooldown = this.defaultShotCooldown;
         
         this.activeBoosts = [];
         this.boostTimers = {};
-        this.shieldActive = false;
+        this.boostDropChance = 0.2; // 20% chance for boost drop
+        this.boostDuration = 10000; // 10 seconds in milliseconds
+        this.boostStartTimes = {}; // Track when each boost was activated
         
         this.paused = false;
         this.justLeveledUp = false;
@@ -202,7 +205,8 @@ class Game {
         this.playerX = this.canvas.width / 2;
         this.activeBoosts = [];
         this.boostTimers = {};
-        this.shieldActive = false;
+        this.boostStartTimes = {};
+        this.shotCooldown = this.defaultShotCooldown;
         this.paused = false;
         this.justLeveledUp = false;
         this.lastLevel = 1;
@@ -241,11 +245,6 @@ class Game {
                     speed: 7,
                     isPlayerProjectile: true
                 });
-            } else if (this.activeBoosts.includes('wide_shot')) {
-                // Wide shot: three projectiles
-                projectiles.push({ x: this.playerX + this.playerWidth / 2, y: this.canvas.height - this.playerHeight, width: 5, height: 15, speed: 7, isPlayerProjectile: true, dx: 0 });
-                projectiles.push({ x: this.playerX + this.playerWidth / 2, y: this.canvas.height - this.playerHeight, width: 5, height: 15, speed: 7, isPlayerProjectile: true, dx: -2 });
-                projectiles.push({ x: this.playerX + this.playerWidth / 2, y: this.canvas.height - this.playerHeight, width: 5, height: 15, speed: 7, isPlayerProjectile: true, dx: 2 });
             } else {
                 // Normal single shot
                 projectiles.push({
@@ -262,9 +261,20 @@ class Game {
             }
             this.lastShot = Date.now();
         }
-        
-        // Apply boost effects
-        this.applyBoostEffects();
+
+        // Check for boost collisions
+        if (this.gameState.boosts) {
+            this.gameState.boosts = this.gameState.boosts.filter(boost => {
+                if (this.checkCollision(
+                    { x: this.playerX, y: this.canvas.height - this.playerHeight, width: this.playerWidth, height: this.playerHeight },
+                    { x: boost.x, y: boost.y, width: 20, height: 20 }
+                )) {
+                    this.activateBoost(boost.type);
+                    return false;
+                }
+                return true;
+            });
+        }
         
         // Show next level banner
         if (this.gameState.player.level !== this.lastLevel) {
@@ -334,14 +344,12 @@ class Game {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Draw player
-        this.ctx.fillStyle = this.shieldActive ? '#ff0' : '#0ff';
+        this.ctx.fillStyle = '#0ff';
         this.ctx.fillRect(this.playerX, this.canvas.height - this.playerHeight, this.playerWidth, this.playerHeight);
         
         // Draw projectiles
         this.ctx.fillStyle = '#fff';
         this.gameState.projectiles.forEach(projectile => {
-            // Wide shot: move projectiles with dx
-            if (projectile.dx) projectile.x += projectile.dx;
             this.ctx.fillRect(projectile.x, projectile.y, projectile.width, projectile.height);
         });
         
@@ -350,20 +358,26 @@ class Game {
         this.gameState.enemies.forEach(enemy => {
             this.ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
         });
-        
+
         // Draw boosts
         if (this.gameState.boosts) {
+            this.ctx.fillStyle = '#ff0';
             this.gameState.boosts.forEach(boost => {
-                this.ctx.fillStyle = this.getBoostColor(boost.type);
-                this.ctx.fillRect(boost.x, boost.y, boost.width, boost.height);
-                this.ctx.font = '12px Arial';
-                this.ctx.fillStyle = '#000';
-                this.ctx.fillText(this.getBoostLabel(boost.type), boost.x + 2, boost.y + 18);
+                this.ctx.beginPath();
+                this.ctx.arc(boost.x + 10, boost.y + 10, 10, 0, Math.PI * 2);
+                this.ctx.fill();
             });
         }
-        
-        // Draw boost icons above player
-        this.renderBoostIcons();
+
+        // Draw active boost indicators
+        if (this.activeBoosts.length > 0) {
+            this.ctx.fillStyle = '#ff0';
+            this.ctx.font = '16px Arial';
+            this.activeBoosts.forEach((boostType, index) => {
+                const timeLeft = Math.ceil((this.boostDuration - (Date.now() - this.boostStartTimes[boostType])) / 1000);
+                this.ctx.fillText(`${boostType}: ${timeLeft}s`, 10, 60 + index * 20);
+            });
+        }
     }
     
     gameLoop() {
@@ -371,59 +385,6 @@ class Game {
         this.updateGameState();
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
-    }
-    
-    applyBoostEffects() {
-        // Update boosts from backend
-        if (this.gameState.activeBoosts) {
-            for (let boost of this.gameState.activeBoosts) {
-                if (!this.activeBoosts.includes(boost)) {
-                    this.activeBoosts.push(boost);
-                    // Set timers for temporary boosts
-                    if (["faster_shoot", "double_shoot", "shield", "wide_shot"].includes(boost)) {
-                        this.boostTimers[boost] = Date.now();
-                    }
-                    if (boost === "extra_life") {
-                        this.gameState.player.lives += 1;
-                    }
-                }
-            }
-        }
-        // Remove expired boosts (5 seconds duration)
-        let now = Date.now();
-        for (let boost of [...this.activeBoosts]) {
-            if (["faster_shoot", "double_shoot", "shield", "wide_shot"].includes(boost)) {
-                if (now - this.boostTimers[boost] > 5000) {
-                    this.activeBoosts = this.activeBoosts.filter(b => b !== boost);
-                    delete this.boostTimers[boost];
-                }
-            }
-        }
-        // Apply effects
-        this.shotCooldown = this.activeBoosts.includes('faster_shoot') ? 200 : 500;
-        this.shieldActive = this.activeBoosts.includes('shield');
-    }
-    
-    getBoostColor(type) {
-        switch(type) {
-            case 'faster_shoot': return '#0f0';
-            case 'double_shoot': return '#0ff';
-            case 'shield': return '#ff0';
-            case 'wide_shot': return '#f0f';
-            case 'extra_life': return '#fff';
-            default: return '#888';
-        }
-    }
-    
-    getBoostLabel(type) {
-        switch(type) {
-            case 'faster_shoot': return 'FS';
-            case 'double_shoot': return 'DS';
-            case 'shield': return 'SH';
-            case 'wide_shot': return 'WS';
-            case 'extra_life': return '+1';
-            default: return '?';
-        }
     }
     
     showNextLevelBanner() {
@@ -434,26 +395,51 @@ class Game {
             banner.style.display = 'none';
         }, 1500);
     }
-    
-    renderBoostIcons() {
-        const iconsDiv = document.getElementById('boostIcons');
-        iconsDiv.innerHTML = '';
-        for (let boost of this.activeBoosts) {
-            const icon = document.createElement('div');
-            icon.className = 'boost-icon';
-            icon.style.background = this.getBoostColor(boost);
-            icon.textContent = this.getBoostLabel(boost);
-            // Timer bar
-            if (["faster_shoot", "double_shoot", "shield", "wide_shot"].includes(boost)) {
-                const timer = document.createElement('div');
-                timer.className = 'boost-timer';
-                const duration = 5000;
-                const left = this.boostTimers[boost] || 0;
-                const width = Math.max(0, 32 * (1 - (Date.now() - left) / duration));
-                timer.style.width = width + 'px';
-                icon.appendChild(timer);
+
+    checkCollision(rect1, rect2) {
+        return rect1.x < rect2.x + rect2.width &&
+               rect1.x + rect1.width > rect2.x &&
+               rect1.y < rect2.y + rect2.height &&
+               rect1.y + rect1.height > rect2.y;
+    }
+
+    activateBoost(boostType) {
+        // If boost is already active, clear its existing timer
+        if (this.activeBoosts.includes(boostType)) {
+            clearTimeout(this.boostTimers[boostType]);
+        } else {
+            this.activeBoosts.push(boostType);
+        }
+        // Reset the start time and timer
+        this.boostStartTimes[boostType] = Date.now();
+        // Special logic for fast_shoot
+        if (boostType === 'fast_shoot') {
+            this.shotCooldown = 200; // Faster shooting
+        }
+        this.boostTimers[boostType] = setTimeout(() => {
+            this.activeBoosts = this.activeBoosts.filter(b => b !== boostType);
+            delete this.boostTimers[boostType];
+            delete this.boostStartTimes[boostType];
+            if (boostType === 'fast_shoot') {
+                this.shotCooldown = this.defaultShotCooldown; // Restore normal cooldown
             }
-            iconsDiv.appendChild(icon);
+        }, this.boostDuration);
+    }
+
+    handleEnemyDeath(enemy) {
+        // Random chance to drop a boost
+        if (Math.random() < this.boostDropChance) {
+            if (!this.gameState.boosts) {
+                this.gameState.boosts = [];
+            }
+            // Randomly choose between double_shoot and fast_shoot
+            const boostTypes = ['double_shoot', 'fast_shoot'];
+            const type = boostTypes[Math.floor(Math.random() * boostTypes.length)];
+            this.gameState.boosts.push({
+                x: enemy.x,
+                y: enemy.y,
+                type: type
+            });
         }
     }
 }

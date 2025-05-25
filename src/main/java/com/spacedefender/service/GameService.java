@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Random;
-import java.util.Iterator;
 import java.util.ArrayList;
 
 @Service
@@ -70,29 +69,11 @@ public class GameService {
             projectile.move();
         }
         
-        // Move boosts (falling down)
-        if (gameState.getClass().getDeclaredFields() != null) {
-            List<Boost> boosts = (List<Boost>) getOrCreateBoosts(gameState);
-            for (Boost boost : boosts) {
-                boost.y += 2;
+        // Update boosts
+        if (gameState.getBoosts() != null) {
+            for (Boost boost : gameState.getBoosts()) {
+                boost.update();
             }
-            // Check for collection by player (player is at bottom)
-            Iterator<Boost> it = boosts.iterator();
-            while (it.hasNext()) {
-                Boost boost = it.next();
-                if (boost.y > 570 && Math.abs(boost.x - 400) < 60) { // Player is centered at x=400
-                    gameState.getActiveBoosts().add(boost.type);
-                    it.remove();
-                }
-            }
-        }
-        
-        // Randomly spawn a boost
-        if (random.nextDouble() < 0.01) { // 1% chance per update
-            List<Boost> boosts = (List<Boost>) getOrCreateBoosts(gameState);
-            String[] types = {"faster_shoot", "double_shoot", "shield", "wide_shot", "extra_life"};
-            String type = types[random.nextInt(types.length)];
-            boosts.add(new Boost(random.nextInt(800), -30, type));
         }
         
         // Check collisions
@@ -132,18 +113,34 @@ public class GameService {
                 for (int j = enemies.size() - 1; j >= 0; j--) {
                     Enemy enemy = enemies.get(j);
                     if (enemy.isHit(projectile)) {
-                        enemy.setHealth(enemy.getHealth() - 1);
+                        handleEnemyDeath(gameState, enemy);
                         projectiles.remove(i);
-                        if (enemy.getHealth() <= 0) {
-                            gameState.getPlayer().setCurrentScore(
-                                gameState.getPlayer().getCurrentScore() + enemy.getPoints()
-                            );
-                            enemies.remove(j);
-                        }
                         break;
                     }
                 }
             }
+        }
+    }
+    
+    private void handleEnemyDeath(GameState gameState, Enemy enemy) {
+        gameState.getEnemies().remove(enemy);
+        gameState.getPlayer().setCurrentScore(gameState.getPlayer().getCurrentScore() + enemy.getPoints());
+        
+        // Check for boost drop
+        if (Math.random() < 0.2) { // 20% chance for boost drop
+            if (gameState.getBoosts() == null) {
+                gameState.setBoosts(new ArrayList<>());
+            }
+            // Randomly choose between double_shoot and fast_shoot
+            String[] boostTypes = {"double_shoot", "fast_shoot"};
+            String type = boostTypes[new Random().nextInt(boostTypes.length)];
+            gameState.getBoosts().add(new Boost(enemy.getX(), enemy.getY(), type));
+        }
+        
+        // Check if all enemies are destroyed
+        if (gameState.getEnemies().isEmpty()) {
+            gameState.getPlayer().setLevel(gameState.getPlayer().getLevel() + 1);
+            spawnWave(gameState, gameState.getPlayer().getLevel());
         }
     }
     
@@ -159,7 +156,7 @@ public class GameService {
             for (int col = 0; col < cols; col++) {
                 int x = startX + col * spacingX;
                 int y = startY + row * spacingY;
-                double speed = 1.0 + (level - 1) * 0.5;
+                double speed = 1.0; // <-- фиксированная скорость для всех уровней
                 int health = 1; // Always 1-hit to kill
                 int points = 100 * level;
                 gameState.getEnemies().add(new Enemy(x, y, 40, 40, speed, health, points));
@@ -205,33 +202,4 @@ public class GameService {
             this.score = score;
         }
     }
-    
-    // Helper to get or create boosts list in GameState (for frontend rendering)
-    private Object getOrCreateBoosts(GameState gameState) {
-        try {
-            java.lang.reflect.Field field = GameState.class.getDeclaredField("boosts");
-            field.setAccessible(true);
-            Object boosts = field.get(gameState);
-            if (boosts == null) {
-                boosts = new ArrayList<Boost>();
-                field.set(gameState, boosts);
-            }
-            return boosts;
-        } catch (Exception e) {
-            return new ArrayList<Boost>();
-        }
-    }
 }
-
-// Boost class for frontend rendering
-class Boost {
-    public int x, y, width, height;
-    public String type;
-    public Boost(int x, int y, String type) {
-        this.x = x;
-        this.y = y;
-        this.width = 30;
-        this.height = 30;
-        this.type = type;
-    }
-} 
