@@ -141,9 +141,10 @@ class Game {
         
         this.activeBoosts = [];
         this.boostTimers = {};
-        this.boostDropChance = 0.2; // 20% chance for boost drop
         this.boostDuration = 10000; // 10 seconds in milliseconds
         this.boostStartTimes = {}; // Track when each boost was activated
+        this.boostDropChance = 0.1; // 10% chance for boost drop
+        this.bombDropChance = 0.05; // 5% chance for bomb boost drop
         
         this.paused = false;
         this.justLeveledUp = false;
@@ -304,7 +305,6 @@ class Game {
     
     updateUI() {
         document.getElementById('score').textContent = this.gameState.player.currentScore;
-        document.getElementById('lives').textContent = this.gameState.player.lives;
         document.getElementById('level').textContent = this.gameState.player.level;
     }
     
@@ -327,14 +327,6 @@ class Game {
                 li.textContent = `${index + 1}. ${player.username}: ${player.highScore}`;
                 leaderboardList.appendChild(li);
             });
-            // Show current player's place and score
-            if (data.place > 0) {
-                const li = document.createElement('li');
-                li.style.marginTop = '10px';
-                li.style.color = '#fff';
-                li.textContent = `...\nYour place: ${data.place}, Score: ${data.score}`;
-                leaderboardList.appendChild(li);
-            }
         } catch (error) {
             console.error('Error loading leaderboard:', error);
         }
@@ -366,6 +358,8 @@ class Game {
                     this.ctx.fillStyle = '#ff0'; // yellow
                 } else if (boost.type === 'fast_shoot') {
                     this.ctx.fillStyle = '#0ff'; // cyan
+                } else if (boost.type === 'bomb') {
+                    this.ctx.fillStyle = '#f00'; // red
                 } else {
                     this.ctx.fillStyle = '#fff'; // fallback
                 }
@@ -416,12 +410,29 @@ class Game {
         } else {
             this.activeBoosts.push(boostType);
         }
+        
         // Reset the start time and timer
         this.boostStartTimes[boostType] = Date.now();
-        // Special logic for fast_shoot
+        
+        // Special logic for different boost types
         if (boostType === 'fast_shoot') {
             this.shotCooldown = 200; // Faster shooting
+        } else if (boostType === 'bomb') {
+            // Destroy 40% of enemies
+            const enemiesToDestroy = Math.ceil(this.gameState.enemies.length * 0.4);
+            for (let i = 0; i < enemiesToDestroy; i++) {
+                if (this.gameState.enemies.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * this.gameState.enemies.length);
+                    this.gameState.enemies.splice(randomIndex, 1);
+                }
+            }
+            // Remove the boost immediately after use
+            this.activeBoosts = this.activeBoosts.filter(b => b !== boostType);
+            delete this.boostTimers[boostType];
+            delete this.boostStartTimes[boostType];
+            return; // Don't set timer for bomb boost
         }
+        
         this.boostTimers[boostType] = setTimeout(() => {
             this.activeBoosts = this.activeBoosts.filter(b => b !== boostType);
             delete this.boostTimers[boostType];
@@ -434,7 +445,19 @@ class Game {
 
     handleEnemyDeath(enemy) {
         // Random chance to drop a boost
-        if (Math.random() < this.boostDropChance) {
+        const random = Math.random();
+        if (random < this.bombDropChance) {
+            // Drop bomb boost (5% chance)
+            if (!this.gameState.boosts) {
+                this.gameState.boosts = [];
+            }
+            this.gameState.boosts.push({
+                x: enemy.x,
+                y: enemy.y,
+                type: 'bomb'
+            });
+        } else if (random < this.boostDropChance) {
+            // Drop regular boost (10% chance)
             if (!this.gameState.boosts) {
                 this.gameState.boosts = [];
             }
