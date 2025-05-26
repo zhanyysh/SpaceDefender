@@ -27,7 +27,6 @@ public class GameService {
         } else {
             player.setCurrentScore(0);
             player.setLevel(1);
-            player.setLives(3);
             playerRepository.save(player);
         }
         GameState state = new GameState(player);
@@ -127,7 +126,13 @@ public class GameService {
         gameState.getPlayer().setCurrentScore(gameState.getPlayer().getCurrentScore() + enemy.getPoints());
         
         // Check for boost drop
-        if (Math.random() < 0.2) { // 20% chance for boost drop
+        double random = Math.random();
+        if (random < 0.05) { // 5% chance for bomb boost
+            if (gameState.getBoosts() == null) {
+                gameState.setBoosts(new ArrayList<>());
+            }
+            gameState.getBoosts().add(new Boost(enemy.getX(), enemy.getY(), "bomb"));
+        } else if (random < 0.1) { // 10% chance for regular boost
             if (gameState.getBoosts() == null) {
                 gameState.setBoosts(new ArrayList<>());
             }
