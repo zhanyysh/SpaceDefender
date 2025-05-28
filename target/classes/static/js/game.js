@@ -1,6 +1,12 @@
 let currentGame = null;
 let stompClient = null;
 let currentRoomId = null;
+let lobbyPlayers = [];
+let lobbyRoomId = null;
+let isRoomCreator = false;
+
+// --- Автообновление списка публичных комнат ---
+let publicRoomsInterval = null;
 
 window.addEventListener('load', () => {
     // Single Player button
@@ -10,8 +16,7 @@ window.addEventListener('load', () => {
 
     // Multiplayer button
     document.getElementById('multiPlayerBtn').onclick = function() {
-        document.getElementById('multiplayerOptions').style.display = 'block';
-        loadRooms();
+        document.getElementById('multiplayerMenuModal').style.display = 'flex';
     };
 
     // Play Again button
@@ -77,7 +82,63 @@ window.addEventListener('load', () => {
     });
 
     // Create Room button
-    document.getElementById('createRoomBtn').onclick = async function() {
+    document.querySelector('#multiplayerMenuModal #createRoomBtn').onclick = function() {
+        document.getElementById('multiplayerMenuModal').style.display = 'none';
+        document.getElementById('createRoomModal').style.display = 'flex';
+    };
+
+    // Join Room button
+    document.querySelector('#multiplayerMenuModal #joinRoomBtn').onclick = function() {
+        document.getElementById('multiplayerMenuModal').style.display = 'none';
+        document.getElementById('joinRoomModal').style.display = 'flex';
+        document.getElementById('publicRoomList').style.display = 'none';
+        document.getElementById('privateRoomCode').style.display = 'none';
+    };
+
+    // Join Public Room button
+    document.getElementById('joinPublicRoomBtn').onclick = function() {
+        document.getElementById('publicRoomList').style.display = 'block';
+        document.getElementById('privateRoomCode').style.display = 'none';
+        loadRooms();
+        if (publicRoomsInterval) clearInterval(publicRoomsInterval);
+        publicRoomsInterval = setInterval(() => {
+            if (document.getElementById('publicRoomList').style.display === 'block') {
+                loadRooms();
+            } else {
+                clearInterval(publicRoomsInterval);
+            }
+        }, 2000);
+    };
+
+    // Join Private Room button
+    document.getElementById('joinPrivateRoomBtn').onclick = function() {
+        document.getElementById('privateRoomCode').style.display = 'block';
+        document.getElementById('publicRoomList').style.display = 'none';
+    };
+
+    // Крестики закрытия модалок
+    document.getElementById('closeMultiplayerMenu').onclick = function() {
+        document.getElementById('multiplayerMenuModal').style.display = 'none';
+    };
+    document.getElementById('closeCreateRoom').onclick = function() {
+        document.getElementById('createRoomModal').style.display = 'none';
+        document.getElementById('multiplayerMenuModal').style.display = 'flex';
+    };
+    document.getElementById('closeJoinRoom').onclick = function() {
+        document.getElementById('joinRoomModal').style.display = 'none';
+        document.getElementById('multiplayerMenuModal').style.display = 'flex';
+        if (publicRoomsInterval) clearInterval(publicRoomsInterval);
+    };
+    var closeLobby = document.getElementById('closeLobbyModal');
+    if (closeLobby) {
+        closeLobby.onclick = function() {
+            document.getElementById('lobbyModal').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'flex';
+        };
+    }
+
+    // Confirm Create Room button
+    document.getElementById('confirmCreateRoomBtn').onclick = async function() {
         const username = document.getElementById('username').value.trim();
         const maxPlayers = parseInt(document.getElementById('maxPlayers').value, 10);
         const isPublic = document.getElementById('isPublic').checked;
@@ -91,12 +152,31 @@ window.addEventListener('load', () => {
             body: JSON.stringify({ username, maxPlayers, isPublic })
         });
         const room = await res.json();
-        if (!isPublic) {
-            document.getElementById('privateRoomCode').style.display = 'block';
-            document.getElementById('roomCode').textContent = room.code;
+        // joinRoom(room.id, true) - создатель
+        joinRoom(room.id, true, room.code);
+        document.getElementById('createRoomModal').style.display = 'none';
+    };
+
+    // Confirm Join Private Room button
+    document.getElementById('confirmJoinPrivateBtn').onclick = async function() {
+        const code = document.getElementById('roomCodeInput').value.trim();
+        const username = document.getElementById('username').value.trim();
+        if (!code || !username) {
+            alert('Please enter both username and room code');
+            return;
         }
-        // Optionally, auto-join the room or show waiting screen
-        // joinRoom(room.id, username);
+        const res = await fetch('/api/rooms/join-by-code', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ code, username })
+        });
+        if (res.ok) {
+            const room = await res.json();
+            joinRoom(room.id);
+            document.getElementById('joinRoomModal').style.display = 'none';
+        } else {
+            alert('Failed to join room: ' + await res.text());
+        }
     };
 
     // Keyboard events for the game
@@ -489,7 +569,7 @@ async function loadRooms() {
     });
 }
 
-async function joinRoom(roomId) {
+async function joinRoom(roomId, creator = false, roomCode = null) {
     const username = document.getElementById('username').value.trim();
     const res = await fetch(`/api/rooms/${roomId}/join`, {
         method: 'POST',
@@ -497,18 +577,63 @@ async function joinRoom(roomId) {
         body: JSON.stringify({ username })
     });
     if (res.ok) {
-        // Proceed to multiplayer game lobby or game
-        // startMultiplayerGame(roomId, username);
-        alert('Joined room! (implement game start logic)');
+        lobbyRoomId = roomId;
+        isRoomCreator = creator;
+        showLobby(roomId, username, creator, roomCode);
         connectToRoomWebSocket(roomId, (data) => {
-            // Update your game state here
-            // For now, just log:
-            console.log('Received from server:', data);
+            if (data.type === 'players') {
+                updateLobbyPlayers(data.players);
+            } else if (data.type === 'start') {
+                hideLobby();
+                startMultiplayerGame(roomId, username);
+            }
         });
+        setTimeout(() => {
+            sendRoomAction(roomId, {type: 'players_request', username});
+        }, 300);
     } else {
         alert('Failed to join room: ' + await res.text());
     }
 }
+
+function showLobby(roomId, username, creator, roomCode) {
+    document.getElementById('lobbyModal').style.display = 'flex';
+    document.getElementById('lobbyRoomId').textContent = roomId;
+    if (roomCode) {
+        let codeBlock = document.getElementById('lobbyRoomCode');
+        if (!codeBlock) {
+            codeBlock = document.createElement('div');
+            codeBlock.id = 'lobbyRoomCode';
+            codeBlock.style.margin = '0.5rem 0 1rem 0';
+            codeBlock.style.color = '#0ff';
+            document.getElementById('lobbyRoomId').parentNode.appendChild(codeBlock);
+        }
+        codeBlock.innerHTML = 'Room Code: <b>' + roomCode + '</b>';
+    }
+    document.getElementById('lobbyPlayersList').innerHTML = '';
+    document.getElementById('lobbyStartBtn').style.display = creator ? 'inline-block' : 'none';
+}
+
+function hideLobby() {
+    document.getElementById('lobbyModal').style.display = 'none';
+}
+
+function updateLobbyPlayers(players) {
+    lobbyPlayers = players;
+    const list = document.getElementById('lobbyPlayersList');
+    list.innerHTML = '';
+    players.forEach(p => {
+        const li = document.createElement('li');
+        li.textContent = p;
+        list.appendChild(li);
+    });
+}
+
+document.getElementById('lobbyStartBtn').onclick = function() {
+    if (lobbyRoomId && isRoomCreator) {
+        sendRoomAction(lobbyRoomId, {type: 'start'});
+    }
+};
 
 // For joining by code (private room)
 async function joinByCode() {
@@ -534,12 +659,11 @@ function connectToRoomWebSocket(roomId, onMessage) {
     stompClient = Stomp.over(socket);
 
     stompClient.connect({}, function (frame) {
-        // Subscribe to room topic
         stompClient.subscribe('/topic/room/' + roomId, function (message) {
             const data = JSON.parse(message.body);
             onMessage(data);
         });
-        // Optionally: notify server you joined
+        // Сообщаем серверу о входе
         // stompClient.send('/app/room/' + roomId + '/action', {}, JSON.stringify({type: 'join', username: ...}));
     });
 }
@@ -548,4 +672,19 @@ function sendRoomAction(roomId, action) {
     if (stompClient && stompClient.connected) {
         stompClient.send('/app/room/' + roomId + '/action', {}, JSON.stringify(action));
     }
+}
+
+// --- Старт мультиплеерной игры ---
+function startMultiplayerGame(roomId, username) {
+    // Скрываем все модалки и стартовый экран
+    document.getElementById('lobbyModal').style.display = 'none';
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('gameScreen').style.display = 'block';
+    // TODO: здесь можно реализовать загрузку состояния комнаты и запуск игры для всех
+    // Пока просто создаём новый Game
+    if (currentGame && currentGame.running) {
+        currentGame.running = false;
+    }
+    currentGame = new Game();
+    currentGame.startGame();
 }

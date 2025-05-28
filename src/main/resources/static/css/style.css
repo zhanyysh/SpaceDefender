@@ -297,3 +297,177 @@ button:hover {
     background: rgba(0, 255, 255, 0.4);
     box-shadow: 0 0 10px #0ff;
 }
+
+.multiplayer-buttons {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 2rem;
+    margin: 2rem 0 1rem 0;
+}
+
+.menu-button {
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.menu-button:hover {
+    background-color: #45a049;
+}
+
+#createRoomSection, #joinRoomSection {
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 2rem;
+    border-radius: 10px;
+    margin-top: 1rem;
+}
+
+.join-options {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+#publicRoomList, #privateRoomCode {
+    margin-top: 1rem;
+}
+
+#roomList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#roomList div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+}
+
+#roomCodeInput {
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+    width: 100%;
+    max-width: 200px;
+}
+
+#confirmJoinPrivateBtn {
+    padding: 0.5rem 1rem;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#confirmJoinPrivateBtn:hover {
+    background-color: #45a049;
+}
+
+/* Модальное окно */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: auto;
+    background: rgba(0,0,0,0.7);
+    justify-content: center;
+    align-items: center;
+}
+.modal-content {
+    background: #181c22;
+    margin: auto;
+    padding: 2rem 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 0 20px #0ff;
+    position: relative;
+    min-width: 320px;
+    max-width: 90vw;
+    color: #fff;
+}
+.close {
+    position: absolute;
+    top: 10px;
+    right: 18px;
+    color: #0ff;
+    font-size: 32px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.close:hover {
+    color: #fff;
+}
+
+.blue-btn, .menu-button, #confirmJoinPrivateBtn {
+    background: #00FFFF !important;
+    color: #000 !important;
+    border: none;
+    border-radius: 5px;
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 10px 0;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+    box-shadow: 0 0 16px #00FFFF66;
+}
+.blue-btn:hover, .menu-button:hover, #confirmJoinPrivateBtn:hover {
+    background: #00b8cc !important;
+    color: #fff !important;
+    transform: scale(1.05);
+}
+
+/* Убираю зелёные стили */
+.menu-button {
+    /* background-color: #4CAF50; */
+    /* color: white; */
+}
+.menu-button:hover {
+    /* background-color: #45a049; */
+}
+
+#lobbyPlayersList {
+    margin: 1rem 0 2rem 0;
+    padding: 0;
+    list-style: none;
+    color: #0ff;
+    font-size: 1.1rem;
+}
+#lobbyPlayersList li {
+    margin-bottom: 0.5rem;
+    padding: 0.3rem 0.7rem;
+    background: rgba(0,255,255,0.07);
+    border-radius: 5px;
+    color: #fff;
+    font-weight: 500;
+    letter-spacing: 1px;
+    display: inline-block;
+}
+#lobbyModal .modal-content {
+    min-width: 340px;
+    text-align: center;
+}
+#lobbyStartBtn {
+    margin-top: 1.5rem;
+}
+
+#multiplayerMenuModal .modal-content {
+    min-width: 340px;
+    text-align: center;
+    box-shadow: 0 0 32px #00FFFF, 0 0 8px #00FFFF99;
+    background: #181c22;
+}
