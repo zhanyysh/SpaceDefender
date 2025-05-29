@@ -8,6 +8,20 @@ let isRoomCreator = false;
 // --- Автообновление списка публичных комнат ---
 let publicRoomsInterval = null;
 
+const shipSprite = new Image();
+shipSprite.src = '/img/SpaceShipSprites.png';
+
+function drawShip(ctx, x, y, spriteIndex = 0, frame = 0, size =42) {
+    const SPRITE_WIDTH = 32;
+    const SPRITE_HEIGHT = 32;
+    ctx.drawImage(
+        shipSprite,
+        frame * SPRITE_WIDTH, spriteIndex * SPRITE_HEIGHT,
+        SPRITE_WIDTH, SPRITE_HEIGHT,
+        x, y, size, size
+    );
+}
+
 window.addEventListener('load', () => {
     // Single Player button
     document.getElementById('singlePlayerBtn').onclick = function() {
@@ -414,10 +428,15 @@ class Game {
     
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
         // Draw player
-        this.ctx.fillStyle = '#0ff';
-        this.ctx.fillRect(this.playerX, this.canvas.height - this.playerHeight, this.playerWidth, this.playerHeight);
+        drawShip(
+            this.ctx,
+            this.playerX,
+            this.canvas.height - 42, // 64 - новая высота спрайта
+            0, // spriteIndex: первая строка спрайта (можно сделать выбор по типу)
+            0, // frame: первый столбец (можно анимировать)
+            42 // размер спрайта
+        );
         
         // Draw projectiles
         this.ctx.fillStyle = '#fff';
@@ -426,9 +445,15 @@ class Game {
         });
         
         // Draw enemies
-        this.ctx.fillStyle = '#f00';
         this.gameState.enemies.forEach(enemy => {
-            this.ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            drawShip(
+                this.ctx,
+                enemy.x,
+                enemy.y,
+                1, // spriteIndex: вторая строка спрайта для врагов
+                0, // frame: первый столбец (можно анимировать или рандомизировать)
+                42 // размер спрайта
+            );
         });
 
         // Draw boosts
@@ -560,7 +585,7 @@ async function loadRooms() {
     roomList.innerHTML = '';
     rooms.forEach(room => {
         const div = document.createElement('div');
-        div.textContent = `Room #${room.id} (${room.currentPlayers}/${room.maxPlayers})`;
+        div.textContent = `Room #${room.id} (${room.usernames.length}/${room.maxPlayers})`;
         const joinBtn = document.createElement('button');
         joinBtn.textContent = 'Join';
         joinBtn.onclick = () => joinRoom(room.id);
@@ -577,9 +602,10 @@ async function joinRoom(roomId, creator = false, roomCode = null) {
         body: JSON.stringify({ username })
     });
     if (res.ok) {
+        const room = await res.json();
         lobbyRoomId = roomId;
         isRoomCreator = creator;
-        showLobby(roomId, username, creator, roomCode);
+        showLobby(roomId, username, creator, roomCode, room.usernames || []);
         connectToRoomWebSocket(roomId, (data) => {
             if (data.type === 'players') {
                 updateLobbyPlayers(data.players);
@@ -596,7 +622,7 @@ async function joinRoom(roomId, creator = false, roomCode = null) {
     }
 }
 
-function showLobby(roomId, username, creator, roomCode) {
+function showLobby(roomId, username, creator, roomCode, usernames = []) {
     document.getElementById('lobbyModal').style.display = 'flex';
     document.getElementById('lobbyRoomId').textContent = roomId;
     if (roomCode) {
@@ -610,8 +636,15 @@ function showLobby(roomId, username, creator, roomCode) {
         }
         codeBlock.innerHTML = 'Room Code: <b>' + roomCode + '</b>';
     }
-    document.getElementById('lobbyPlayersList').innerHTML = '';
+    const list = document.getElementById('lobbyPlayersList');
+    list.innerHTML = '';
+    usernames.forEach(p => {
+        const li = document.createElement('li');
+        li.textContent = p;
+        list.appendChild(li);
+    });
     document.getElementById('lobbyStartBtn').style.display = creator ? 'inline-block' : 'none';
+    document.getElementById('lobbyCloseBtn').style.display = creator ? 'inline-block' : 'none';
 }
 
 function hideLobby() {
@@ -634,6 +667,24 @@ document.getElementById('lobbyStartBtn').onclick = function() {
         sendRoomAction(lobbyRoomId, {type: 'start'});
     }
 };
+
+document.getElementById('lobbyCloseBtn').onclick = async function() {
+    if (!lobbyRoomId || !isRoomCreator) return;
+    if (!confirm('Are you sure you want to close the room for all players?')) return;
+    try {
+        const res = await fetch(`/api/rooms/${lobbyRoomId}`, { method: 'DELETE' });
+        if (res.ok) {
+            // Всех игроков возвращаем на стартовый экран
+            document.getElementById('lobbyModal').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'flex';
+            alert('Room closed!');
+        } else {
+            alert('Failed to close room: ' + await res.text());
+        }
+    } catch (e) {
+        alert('Error closing room: ' + e);
+    }
+}
 
 // For joining by code (private room)
 async function joinByCode() {
