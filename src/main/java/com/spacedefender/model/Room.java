@@ -19,7 +19,9 @@ public class Room {
 
     private boolean isPublic;
     private int maxPlayers;
-    private int currentPlayers;
+    public int getCurrentPlayers() {
+        return usernames.size();
+    }
     private String name; // Optional: room name or creator username
 
     @ElementCollection

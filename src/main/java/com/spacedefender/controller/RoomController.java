@@ -26,7 +26,6 @@ public class RoomController {
         Room room = new Room();
         room.setMaxPlayers((Integer) req.get("maxPlayers"));
         room.setPublic((Boolean) req.get("isPublic"));
-        room.setCurrentPlayers(1);
         room.setName((String) req.getOrDefault("name", ""));
         room.getUsernames().add((String) req.get("username"));
         if (!(Boolean) req.get("isPublic")) {
@@ -39,8 +38,7 @@ public class RoomController {
     public ResponseEntity<?> joinRoom(@PathVariable Long roomId, @RequestBody Map<String, String> req) {
         Room room = roomRepository.findById(roomId).orElse(null);
         if (room == null) return ResponseEntity.notFound().build();
-        if (room.getCurrentPlayers() >= room.getMaxPlayers()) return ResponseEntity.badRequest().body("Room is full");
-        room.setCurrentPlayers(room.getCurrentPlayers() + 1);
+        if (room.getUsernames().size() >= room.getMaxPlayers()) return ResponseEntity.badRequest().body("Room is full");
         room.getUsernames().add(req.get("username"));
         roomRepository.save(room);
         return ResponseEntity.ok(room);
@@ -52,10 +50,18 @@ public class RoomController {
         String username = req.get("username");
         Room room = roomRepository.findByCode(code);
         if (room == null) return ResponseEntity.notFound().build();
-        if (room.getCurrentPlayers() >= room.getMaxPlayers()) return ResponseEntity.badRequest().body("Room is full");
-        room.setCurrentPlayers(room.getCurrentPlayers() + 1);
+        if (room.getUsernames().size() >= room.getMaxPlayers()) return ResponseEntity.badRequest().body("Room is full");
         room.getUsernames().add(username);
         roomRepository.save(room);
         return ResponseEntity.ok(room);
+    }
+
+    @DeleteMapping("/{roomId}")
+    public ResponseEntity<?> deleteRoom(@PathVariable Long roomId) {
+        if (!roomRepository.existsById(roomId)) {
+            return ResponseEntity.notFound().build();
+        }
+        roomRepository.deleteById(roomId);
+        return ResponseEntity.ok().build();
     }
 } 
