@@ -4,6 +4,7 @@ import com.spacedefender.model.Room;
 import com.spacedefender.repository.RoomRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,6 +16,9 @@ import java.util.UUID;
 public class RoomController {
     @Autowired
     private RoomRepository roomRepository;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @GetMapping
     public List<Room> listPublicRooms() {
@@ -41,6 +45,12 @@ public class RoomController {
         if (room.getUsernames().size() >= room.getMaxPlayers()) return ResponseEntity.badRequest().body("Room is full");
         room.getUsernames().add(req.get("username"));
         roomRepository.save(room);
+        messagingTemplate.convertAndSend("/topic/room/" + roomId,
+            java.util.Map.of(
+                "type", "players",
+                "players", room.getUsernames()
+            )
+        );
         return ResponseEntity.ok(room);
     }
 
@@ -53,6 +63,12 @@ public class RoomController {
         if (room.getUsernames().size() >= room.getMaxPlayers()) return ResponseEntity.badRequest().body("Room is full");
         room.getUsernames().add(username);
         roomRepository.save(room);
+        messagingTemplate.convertAndSend("/topic/room/" + room.getId(),
+            java.util.Map.of(
+                "type", "players",
+                "players", room.getUsernames()
+            )
+        );
         return ResponseEntity.ok(room);
     }
 
