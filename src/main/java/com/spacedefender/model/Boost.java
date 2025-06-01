@@ -1,32 +1,33 @@
 package com.spacedefender.model;
 
 public class Boost {
-    private double x;
-    private double y;
-    private String type;
-    private double speed = 2.0; // Speed at which the boost falls down
+    private int x;
+    private int y;
+    private String type; // "double_shoot", "fast_shoot", "bomb"
+    private int speedY = 2;
 
-    public Boost() {}
+    public Boost() {
+    }
 
-    public Boost(double x, double y, String type) {
+    public Boost(int x, int y, String type) {
         this.x = x;
         this.y = y;
         this.type = type;
     }
 
-    public double getX() {
+    public int getX() {
         return x;
     }
 
-    public void setX(double x) {
+    public void setX(int x) {
         this.x = x;
     }
 
-    public double getY() {
+    public int getY() {
         return y;
     }
 
-    public void setY(double y) {
+    public void setY(int y) {
         this.y = y;
     }
 
@@ -38,15 +39,11 @@ public class Boost {
         this.type = type;
     }
 
-    public double getSpeed() {
-        return speed;
+    public int getSpeedY() {
+        return speedY;
     }
 
-    public void setSpeed(double speed) {
-        this.speed = speed;
-    }
-
-    public void update() {
-        this.y += speed; // Make the boost fall down
+    public void setSpeedY(int speedY) {
+        this.speedY = speedY;
     }
 } 

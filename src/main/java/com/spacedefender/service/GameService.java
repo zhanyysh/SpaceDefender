@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Random;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 @Service
 public class GameService {
@@ -70,9 +72,20 @@ public class GameService {
         
         // Update boosts
         if (gameState.getBoosts() != null) {
+            // Двигаем бонусы вниз и проверяем столкновения
+            List<Boost> boostsToRemove = new ArrayList<>();
             for (Boost boost : gameState.getBoosts()) {
-                boost.update();
+                boost.setY(boost.getY() + boost.getSpeedY());
+                if (boost.getY() > 600) {
+                    boostsToRemove.add(boost);
+                    continue;
+                }
+                if (checkCollision(gameState.getPlayer(), boost)) {
+                    activateBoost(gameState, gameState.getPlayer(), boost.getType());
+                    boostsToRemove.add(boost);
+                }
             }
+            gameState.getBoosts().removeAll(boostsToRemove);
         }
         
         // Check collisions
@@ -205,6 +218,42 @@ public class GameService {
             this.top5 = top5;
             this.place = place;
             this.score = score;
+        }
+    }
+
+    private boolean checkCollision(Player player, Boost boost) {
+        return player.getX() < boost.getX() + 20 &&
+               player.getX() + 50 > boost.getX() &&
+               player.getY() < boost.getY() + 20 &&
+               player.getY() + 30 > boost.getY();
+    }
+
+    private void activateBoost(GameState gameState, Player player, String boostType) {
+        if (boostType.equals("bomb")) {
+            // Уничтожаем 40% врагов
+            int enemiesToDestroy = (int)(gameState.getEnemies().size() * 0.4);
+            for (int i = 0; i < enemiesToDestroy && !gameState.getEnemies().isEmpty(); i++) {
+                int randomIndex = (int)(Math.random() * gameState.getEnemies().size());
+                gameState.getEnemies().remove(randomIndex);
+            }
+        } else if (boostType.equals("fast_shoot")) {
+            // Увеличиваем скорость стрельбы на 10 секунд
+            player.setShotCooldown(200); // Быстрая стрельба
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    player.setShotCooldown(500); // Возвращаем нормальную скорость
+                }
+            }, 10000);
+        } else if (boostType.equals("double_shoot")) {
+            // Двойной выстрел на 10 секунд
+            player.setDoubleShoot(true);
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    player.setDoubleShoot(false);
+                }
+            }, 10000);
         }
     }
 }

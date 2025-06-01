@@ -17,6 +17,7 @@ public class GameState {
     private boolean paused;
     private int enemyDirection = 1; // 1 for right, -1 for left
     private int enemyStepDown = 20; // pixels to move down when edge is hit
+    private List<Player> players = new ArrayList<>();
     
     public GameState(Player player) {
         this.player = player;
@@ -40,5 +41,45 @@ public class GameState {
 
     public void setBoosts(List<Boost> boosts) {
         this.boosts = boosts;
+    }
+
+    public List<Player> getPlayers() {
+        return players;
+    }
+
+    public void setPlayers(List<Player> players) {
+        this.players = players;
+    }
+
+    public List<Enemy> getEnemies() {
+        return enemies;
+    }
+
+    public void setEnemies(List<Enemy> enemies) {
+        this.enemies = enemies;
+    }
+
+    public List<Projectile> getProjectiles() {
+        return projectiles;
+    }
+
+    public void setProjectiles(List<Projectile> projectiles) {
+        this.projectiles = projectiles;
+    }
+
+    public int getEnemyDirection() {
+        return enemyDirection;
+    }
+
+    public void setEnemyDirection(int enemyDirection) {
+        this.enemyDirection = enemyDirection;
+    }
+
+    public int getEnemyStepDown() {
+        return enemyStepDown;
+    }
+
+    public void setEnemyStepDown(int enemyStepDown) {
+        this.enemyStepDown = enemyStepDown;
     }
 }
