@@ -10,6 +10,7 @@ public class Projectile {
     private int height;
     private int speed;
     private boolean isPlayerProjectile;
+    private String username;
     
     public Projectile(int x, int y, int width, int height, int speed, boolean isPlayerProjectile) {
         this.x = x;
@@ -23,4 +24,7 @@ public class Projectile {
     public void move() {
         this.y += (isPlayerProjectile ? -speed : speed);
     }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 } 

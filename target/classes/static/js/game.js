@@ -54,6 +54,7 @@ window.addEventListener('load', () => {
             const menuOverlay = document.getElementById('menuOverlay');
             menuOverlay.style.display = 'flex';
             menuOverlay.style.opacity = '1';
+            updateCloseRoomInGameBtn();
         }
     });
 
@@ -67,23 +68,30 @@ window.addEventListener('load', () => {
     });
 
     document.getElementById('exitButton').addEventListener('click', () => {
+        if (isMultiplayer && myUsername && lobbyRoomId) {
+            sendRoomAction(lobbyRoomId, { type: 'leave', username: myUsername });
+        }
         if (currentGame) {
             currentGame.running = false;
-            const menuOverlay = document.getElementById('menuOverlay');
-            menuOverlay.style.display = 'none';
-            menuOverlay.style.opacity = '0';
-            document.getElementById('gameScreen').style.display = 'none';
-            document.getElementById('startScreen').style.display = 'flex';
-            document.getElementById('startScreen').style.opacity = '1';
-            const leaderboard = document.getElementById('leaderboard');
-            leaderboard.style.display = '';
-            leaderboard.style.opacity = '';
-            document.getElementById('countdownOverlay').style.display = 'none';
-            document.getElementById('gameOverOverlay').style.display = 'none';
         }
+        const menuOverlay = document.getElementById('menuOverlay');
+        menuOverlay.style.display = 'none';
+        menuOverlay.style.opacity = '0';
+        document.getElementById('gameScreen').style.display = 'none';
+        document.getElementById('startScreen').style.display = 'flex';
+        document.getElementById('startScreen').style.opacity = '1';
+        document.getElementById('leaderboard').style.display = '';
+        const leaderboard = document.getElementById('leaderboard');
+        leaderboard.style.display = '';
+        leaderboard.style.opacity = '';
+        document.getElementById('countdownOverlay').style.display = 'none';
+        document.getElementById('gameOverOverlay').style.display = 'none';
     });
 
     document.getElementById('gameOverExitButton').addEventListener('click', () => {
+        if (isMultiplayer && myUsername && lobbyRoomId) {
+            sendRoomAction(lobbyRoomId, { type: 'leave', username: myUsername });
+        }
         if (currentGame) {
             currentGame.running = false;
         }
@@ -91,6 +99,7 @@ window.addEventListener('load', () => {
         document.getElementById('gameScreen').style.display = 'none';
         document.getElementById('startScreen').style.display = 'flex';
         document.getElementById('startScreen').style.opacity = '1';
+        document.getElementById('leaderboard').style.display = '';
         const leaderboard = document.getElementById('leaderboard');
         leaderboard.style.display = '';
         leaderboard.style.opacity = '';
@@ -206,6 +215,45 @@ window.addEventListener('load', () => {
             currentGame.keys[e.key] = false;
         }
     });
+
+    // Показывать/скрывать кнопку Close room в меню игры
+    const closeRoomInGameBtn = document.getElementById('closeRoomInGameBtn');
+    const menuOverlay = document.getElementById('menuOverlay');
+    menuOverlay.addEventListener('transitionend', () => {
+        // Для плавности, но можно не использовать
+    });
+    // Показываем кнопку только если мультиплеер и создатель
+    function updateCloseRoomInGameBtn() {
+        if (isMultiplayer && isRoomCreator) {
+            closeRoomInGameBtn.style.display = 'inline-block';
+        } else {
+            closeRoomInGameBtn.style.display = 'none';
+        }
+    }
+    // Обработчик закрытия комнаты
+    closeRoomInGameBtn.onclick = async function() {
+        if (!lobbyRoomId || !isRoomCreator) return;
+        if (!confirm('Are you sure you want to close the room for all players?')) return;
+        try {
+            const res = await fetch(`/api/rooms/${lobbyRoomId}`, { method: 'DELETE' });
+            if (res.ok) {
+                document.getElementById('menuOverlay').style.display = 'none';
+                document.getElementById('gameScreen').style.display = 'none';
+                document.getElementById('startScreen').style.display = 'flex';
+                alert('Room closed!');
+            } else {
+                alert('Failed to close room: ' + await res.text());
+            }
+        } catch (e) {
+            alert('Error closing room: ' + e);
+        }
+    };
+});
+
+window.addEventListener('beforeunload', () => {
+    if (isMultiplayer && myUsername && lobbyRoomId) {
+        sendRoomAction(lobbyRoomId, { type: 'leave', username: myUsername });
+    }
 });
 
 // Helper for single player game
@@ -216,6 +264,8 @@ function startSinglePlayerGame() {
     }
     currentGame = new Game();
     currentGame.startGame();
+    // Показываем leaderboard только в одиночной игре
+    document.getElementById('leaderboard').style.display = '';
 }
 
 class Game {
@@ -327,7 +377,16 @@ class Game {
             sendPlayerAction('move', { x: this.playerX, y: this.canvas.height - 42 });
             let canShoot = this.keys[' '] && Date.now() - this.lastShot > this.shotCooldown;
             if (canShoot) {
-                sendPlayerAction('shoot', { x: this.playerX + 21, y: this.canvas.height - 42 });
+                // Находим своего игрока в gameState.players
+                const myPlayer = this.gameState.players.find(p => p.username === myUsername);
+                if (myPlayer && myPlayer.doubleShoot) {
+                    // Двойной выстрел
+                    sendPlayerAction('shoot', { x: this.playerX + 10, y: this.canvas.height - 42 });
+                    sendPlayerAction('shoot', { x: this.playerX + 32, y: this.canvas.height - 42 });
+                } else {
+                    // Обычный выстрел
+                    sendPlayerAction('shoot', { x: this.playerX + 21, y: this.canvas.height - 42 });
+                }
                 this.lastShot = Date.now();
             }
             return;
@@ -482,6 +541,23 @@ class Game {
                     this.ctx.fillRect(projectile.x, projectile.y, projectile.width, projectile.height);
                 });
             }
+            // Бонусы
+            if (this.gameState.boosts) {
+                this.gameState.boosts.forEach(boost => {
+                    if (boost.type === 'double_shoot') {
+                        this.ctx.fillStyle = '#ff0';
+                    } else if (boost.type === 'fast_shoot') {
+                        this.ctx.fillStyle = '#0ff';
+                    } else if (boost.type === 'bomb') {
+                        this.ctx.fillStyle = '#f00';
+                    } else {
+                        this.ctx.fillStyle = '#fff';
+                    }
+                    this.ctx.beginPath();
+                    this.ctx.arc(boost.x + 10, boost.y + 10, 10, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+            }
             return;
         }
         // --- Singleplayer: как раньше ---
@@ -600,7 +676,7 @@ class Game {
     handleEnemyDeath(enemy) {
         // Random chance to drop a boost
         const random = Math.random();
-        if (random < this.bombDropChance) {
+        if (random <= this.bombDropChance) {
             // Drop bomb boost (5% chance)
             if (!this.gameState.boosts) {
                 this.gameState.boosts = [];
@@ -610,7 +686,7 @@ class Game {
                 y: enemy.y,
                 type: 'bomb'
             });
-        } else if (random < this.boostDropChance) {
+        } else if (random <= this.boostDropChance) {
             // Drop regular boost (10% chance)
             if (!this.gameState.boosts) {
                 this.gameState.boosts = [];
@@ -628,6 +704,48 @@ class Game {
 
     setMultiplayerState(state) {
         this.gameState = state;
+        // --- Показываем уровень и очки для своего игрока ---
+        if (isMultiplayer && this.gameState && this.gameState.players) {
+            const myPlayer = this.gameState.players.find(p => p.username === myUsername);
+            if (myPlayer) {
+                document.getElementById('score').textContent = myPlayer.currentScore || 0;
+                document.getElementById('level').textContent = myPlayer.level || 1;
+                // Синхронизируем shotCooldown с сервером
+                this.shotCooldown = myPlayer.shotCooldown || this.defaultShotCooldown;
+                // Показываем баннер при переходе на новый уровень
+                if (myPlayer.level !== this.lastLevel) {
+                    this.showNextLevelBanner();
+                    this.lastLevel = myPlayer.level;
+                }
+                // --- Показываем таймеры бустов ---
+                let boostInfo = '';
+                if (myPlayer.shotCooldown < this.defaultShotCooldown) {
+                    if (!this.fastShootEndTime) {
+                        this.fastShootEndTime = Date.now() + 10000;
+                    }
+                    const left = Math.max(0, Math.ceil((this.fastShootEndTime - Date.now()) / 1000));
+                    boostInfo += `<div style='color:#0ff'>Fast shoot: ${left}s</div>`;
+                    if (left === 0) this.fastShootEndTime = null;
+                } else {
+                    this.fastShootEndTime = null;
+                }
+                if (myPlayer.doubleShoot) {
+                    if (!this.doubleShootEndTime) {
+                        this.doubleShootEndTime = Date.now() + 10000;
+                    }
+                    const left = Math.max(0, Math.ceil((this.doubleShootEndTime - Date.now()) / 1000));
+                    boostInfo += `<div style='color:#ff0'>Double shoot: ${left}s</div>`;
+                    if (left === 0) this.doubleShootEndTime = null;
+                } else {
+                    this.doubleShootEndTime = null;
+                }
+                document.getElementById('boostTimers')?.remove();
+                const infoDiv = document.createElement('div');
+                infoDiv.id = 'boostTimers';
+                infoDiv.innerHTML = boostInfo;
+                document.querySelector('.game-info').appendChild(infoDiv);
+            }
+        }
         this.draw();
     }
 }
@@ -803,4 +921,6 @@ function startMultiplayerGame(roomId, username) {
     }
     currentGame = new Game();
     currentGame.startGame();
+    // Скрываем leaderboard в мультиплеере
+    document.getElementById('leaderboard').style.display = 'none';
 }

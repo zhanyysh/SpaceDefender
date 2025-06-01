@@ -20,6 +20,9 @@ public class RoomController {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired
+    private com.spacedefender.controller.GameMessageController gameMessageController;
+
     @GetMapping
     public List<Room> listPublicRooms() {
         return roomRepository.findByIsPublicTrue();
@@ -42,8 +45,10 @@ public class RoomController {
     public ResponseEntity<?> joinRoom(@PathVariable Long roomId, @RequestBody Map<String, String> req) {
         Room room = roomRepository.findById(roomId).orElse(null);
         if (room == null) return ResponseEntity.notFound().build();
-        if (room.getUsernames().size() >= room.getMaxPlayers()) return ResponseEntity.badRequest().body("Room is full");
-        room.getUsernames().add(req.get("username"));
+        if (room.getUsernames().size() >= room.getMaxPlayers() && !room.getUsernames().contains(req.get("username"))) return ResponseEntity.badRequest().body("Room is full");
+        if (!room.getUsernames().contains(req.get("username"))) {
+            room.getUsernames().add(req.get("username"));
+        }
         roomRepository.save(room);
         messagingTemplate.convertAndSend("/topic/room/" + roomId,
             java.util.Map.of(
@@ -60,8 +65,10 @@ public class RoomController {
         String username = req.get("username");
         Room room = roomRepository.findByCode(code);
         if (room == null) return ResponseEntity.notFound().build();
-        if (room.getUsernames().size() >= room.getMaxPlayers()) return ResponseEntity.badRequest().body("Room is full");
-        room.getUsernames().add(username);
+        if (room.getUsernames().size() >= room.getMaxPlayers() && !room.getUsernames().contains(username)) return ResponseEntity.badRequest().body("Room is full");
+        if (!room.getUsernames().contains(username)) {
+            room.getUsernames().add(username);
+        }
         roomRepository.save(room);
         messagingTemplate.convertAndSend("/topic/room/" + room.getId(),
             java.util.Map.of(
@@ -78,6 +85,7 @@ public class RoomController {
             return ResponseEntity.notFound().build();
         }
         roomRepository.deleteById(roomId);
+        gameMessageController.clearRoomState(roomId);
         return ResponseEntity.ok().build();
     }
 } 
